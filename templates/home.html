@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Spotify Playlist Downloader</title>
+        <style>
+            body {
+                font-family: sans-serif;
+                max-width: 600px;
+                margin: 50px auto;
+                padding: 20px;
+            }
+            input {
+                width: 100%;
+                padding: 8px;
+                margin-bottom: 10px;
+            }
+            button {
+                padding: 10px 15px;
+                cursor: pointer;
+            }
+            .message {
+                margin-top: 20px;
+                padding: 15px;
+                border-radius: 5px;
+            }
+            .success {
+                background-color: #d4edda;
+                color: #155724;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to Spotify Scraper</h1>
+        <p>
+            This is a simple web application that allows you to scrape Spotify
+            data.
+        </p>
+        <form method="POST">
+            {% csrf_token %}
+            <input
+                type="url"
+                name="playlist_url"
+                placeholder="https://open.spotify.com/playlist/..."
+                required
+            />
+            <button type="submit">Download Playlist</button>
+        </form>
+        {% if message %}
+        <div class="message success">{{ message }}</div>
+        {% endif %}
+    </body>
+</html>
