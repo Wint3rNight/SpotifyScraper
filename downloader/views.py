@@ -14,7 +14,6 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 def setup_driver():
-    """Sets up a stable Selenium WebDriver for Firefox."""
     options = webdriver.FirefoxOptions()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
