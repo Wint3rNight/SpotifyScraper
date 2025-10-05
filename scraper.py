@@ -1,5 +1,6 @@
 import time
 import subprocess
+import re
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver.wpewebkit.webdriver import WebDriver
@@ -23,17 +24,21 @@ def setup_driver():
 def fetch_playlist_data(driver, playlist_url):
     driver.get(playlist_url)
     try:
-        WebDriverWait(driver, 30).until(
-            EC.visibility_of_element_located(
-                (By.CSS_SELECTOR, 'div[data-testid="tracklist-row"]')
-            )
-        )
+        wait = WebDriverWait(driver, 60)
+        row_selector = 'div[data-testid="tracklist-row"'
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, row_selector)))
     except Exception as e:
-        print(f"Error: Could not loud the playlist content. {e}")
+        print(
+            f"Error: Timed out. The row_selector '{row_selector}' is likely wrong. Details: {e}"
+        )
         return []
-    song_rows = driver.find_elements(
-        By.CSS_SELECTOR, 'div[data-testid="tracklist-row"]'
-    )
+    song_rows = driver.find_elements(By.CSS_SELECTOR, row_selector)
+    if not song_rows:
+        print(
+            "Selector found, but no song rows were located. The page structure might be unusual."
+        )
+        return []
+    print(f"Found {len(song_rows)} potential song rows. Extracting data...")
     tracks = []
     for row in song_rows:
         try:
@@ -41,11 +46,9 @@ def fetch_playlist_data(driver, playlist_url):
                 By.CSS_SELECTOR, 'a[data-testid="internal-track-link"]'
             )
             song_title = title_element.text
-            artist_element = row.find_element(
-                By.CSS_SELECTOR, 'span > a[href*="/artist/"]'
-            )
-            artist_name = artist_element.text
 
+            artist_element = row.find_element(By.CSS_SELECTOR, 'a[href*="/artist/"]')
+            artist_name = artist_element.text
             if song_title and artist_name:
                 tracks.append({"title": song_title, "artist": artist_name})
         except Exception:
@@ -55,6 +58,8 @@ def fetch_playlist_data(driver, playlist_url):
 
 
 def download_song_from_youtube(title, artist):
+    safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
+    safe_artist = re.sub(r'[\\/*?:"<>|]', "", artist)
     search_query = f"{artist}-{title} audio"
     output_template = f"downloads/{artist}-{title}.mp3"
     print(f"Downloading {title} by {artist}...")
@@ -65,11 +70,11 @@ def download_song_from_youtube(title, artist):
         "mp3",
         "--audio-quality",
         "0",
+        "--max-downloads",
+        "1",
         "--output",
         output_template,
-        "default-search",
-        "ytsearch",
-        search_query,
+        f"ytsearch1:{search_query}",
     ]
     try:
         process = subprocess.Popen(
@@ -87,7 +92,9 @@ def download_song_from_youtube(title, artist):
 
 
 if __name__ == "__main__":
-    playlist_url = "https://open.spotify.com/playlist/37i9dQZEVXbNG2L3SPXyCG"
+    playlist_url = (
+        "https://open.spotify.com/playlist/0OiB55hK6yMwoUOyBiulOY?si=feecf4907eec4946"
+    )
 
     print("Setting up browser driver...")
     driver = setup_driver()
