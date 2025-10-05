@@ -1,9 +1,8 @@
-import time
-import subprocess
+import os
 import re
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver.wpewebkit.webdriver import WebDriver
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,7 +14,6 @@ def setup_driver():
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
     service = FirefoxService(GeckoDriverManager().install())
     driver = webdriver.Firefox(service=service, options=options)
     return driver
@@ -28,17 +26,10 @@ def fetch_playlist_data(driver, playlist_url):
         row_selector = 'div[data-testid="tracklist-row"'
         wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, row_selector)))
     except Exception as e:
-        print(
-            f"Error: Timed out. The row_selector '{row_selector}' is likely wrong. Details: {e}"
-        )
+        print(f"Error: Timed out waiting for content. Details: {e}")
         return []
     song_rows = driver.find_elements(By.CSS_SELECTOR, row_selector)
-    if not song_rows:
-        print(
-            "Selector found, but no song rows were located. The page structure might be unusual."
-        )
-        return []
-    print(f"Found {len(song_rows)} potential song rows. Extracting data...")
+    print(f"Found {len(song_rows)} song rows. Extracting data...")
     tracks = []
     for row in song_rows:
         try:
@@ -53,7 +44,7 @@ def fetch_playlist_data(driver, playlist_url):
                 tracks.append({"title": song_title, "artist": artist_name})
         except Exception:
             continue
-
+    print(f"Successfully extracted {len(tracks)} tracks.")
     return tracks
 
 
@@ -61,7 +52,7 @@ def download_song_from_youtube(title, artist):
     safe_title = re.sub(r'[\\/*?:"<>|]', "", title)
     safe_artist = re.sub(r'[\\/*?:"<>|]', "", artist)
     search_query = f"{artist}-{title} audio"
-    output_template = f"downloads/{artist}-{title}.mp3"
+    output_template = f"downloads/{safe_artist} - {safe_title}.mp3"
     print(f"Downloading {title} by {artist}...")
     command = [
         "yt-dlp",
@@ -70,30 +61,21 @@ def download_song_from_youtube(title, artist):
         "mp3",
         "--audio-quality",
         "0",
-        "--max-downloads",
-        "1",
         "--output",
         output_template,
-        f"ytsearch1:{search_query}",
+        f"ytsearch1:{search_query}"
     ]
     try:
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        stdout, stderr = process.communicate()
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        print(f"Successfully downloaded: {artist} - {title}")
 
-        if process.returncode != 0:
-            print(f"Error downloading {title}: {stderr.decode()}")
-        else:
-            print(f"Successfully downloaded: {artist} - {title}")
-
-    except Exception as e:
-        print(f"An exception occurred while downloading {title}: {e}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading {title}: {e.stderr.strip()}")
 
 
 if __name__ == "__main__":
     playlist_url = (
-        "https://open.spotify.com/playlist/0OiB55hK6yMwoUOyBiulOY?si=feecf4907eec4946"
+        "https://open.spotify.com/playlist/4AgP8sJBupEzx1i19T4FKr?si=361ccc4424b84d16"
     )
 
     print("Setting up browser driver...")
