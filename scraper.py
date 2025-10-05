@@ -32,12 +32,11 @@ def fetch_playlist_data(driver, playlist_url):
             )
         )
         row_selector = 'div[data-testid="tracklist-row"]'
-        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, row_selector)))
+        song_rows = playlist_container.find_elements(By.CSS_SELECTOR, row_selector)
     except Exception as e:
         print(f"Error: Timed out waiting for content. Details: {e}")
         return []
 
-    song_rows = driver.find_elements(By.CSS_SELECTOR, row_selector)
     print(f"Found {len(song_rows)} song rows. Extracting data...")
     tracks = []
     for row in song_rows:
@@ -86,7 +85,7 @@ def download_song_from_youtube(title, artist):
 
 if __name__ == "__main__":
     playlist_url = (
-        "https://open.spotify.com/playlist/4AgP8sJBupEzx1i19T4FKr?si=6b98d42630074e4b"
+        "https://open.spotify.com/playlist/4AgP8sJBupEzx1i19T4FKr?si=346e5b5a26b440df"
     )
 
     print("Setting up browser driver...")
