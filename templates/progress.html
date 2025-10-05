@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Download in Progress</title>
+        <style>
+            body {
+                font-family: sans-serif;
+                max-width: 600px;
+                margin: 50px auto;
+                text-align: center;
+            }
+            .progress-bar {
+                width: 100%;
+                background-color: #f3f3f3;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+            .progress-bar-fill {
+                height: 30px;
+                background-color: #4caf50;
+                width: 0%;
+                border-radius: 5px;
+                text-align: center;
+                line-height: 30px;
+                color: white;
+                transition: width 0.5s;
+            }
+            .message {
+                margin-top: 20px;
+                font-size: 1.2em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Download in Progress...</h1>
+
+        <div class="progress-bar">
+            <div class="progress-bar-fill" id="progress-fill">0%</div>
+        </div>
+
+        <p class="message" id="status-message">Starting up...</p>
+
+        <a href="/" id="home-link" style="display: none"
+            >Download another playlist</a
+        >
+
+        <script>
+            const statusMessage = document.getElementById("status-message");
+            const progressFill = document.getElementById("progress-fill");
+            const homeLink = document.getElementById("home-link");
+
+            const interval = setInterval(() => {
+                fetch("/check_progress/")
+                    .then((response) => response.json())
+                    .then((data) => {
+                        let total = data.total_songs;
+                        let current = data.downloaded_count;
+
+                        if (data.status === "scraping") {
+                            statusMessage.textContent =
+                                "Finding songs in the playlist...";
+                        } else if (data.status === "downloading") {
+                            statusMessage.textContent = `Downloading song ${current} of ${total}...`;
+                            let percentage =
+                                total > 0
+                                    ? Math.round((current / total) * 100)
+                                    : 0;
+                            progressFill.style.width = percentage + "%";
+                            progressFill.textContent = percentage + "%";
+                        } else if (data.status === "complete") {
+                            statusMessage.textContent = "Download complete!";
+                            progressFill.style.width = "100%";
+                            progressFill.textContent = "100%";
+                            homeLink.style.display = "block";
+                            clearInterval(interval);
+                        } else if (data.status === "error") {
+                            statusMessage.textContent =
+                                "An error occurred. The playlist might be private or invalid.";
+                            clearInterval(interval);
+                        }
+                    });
+            }, 2000);
+        </script>
+    </body>
+</html>

@@ -3,7 +3,10 @@
 import os
 import re
 import subprocess
+import threading
 from django.shortcuts import render
+from django.http import JsonResponse
+
 
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -11,6 +14,13 @@ from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+download_progress = {
+    "status": "idle",
+    "total_songs": 0,
+    "download_count": 0,
+    "message": "Downloading...",
+}
 
 
 def setup_driver():
@@ -82,29 +92,37 @@ def download_song_from_youtube(title, artist):
         print(f"Error downloading {title}: {e.stderr.strip()}")
 
 
+def download_thread_target(playlist_url):
+    global download_progress
+    download_progress["status"] = "scraping"
+    driver = setup_driver()
+    tracks = fetch_playlist_data(driver, playlist_url)
+    driver.quit()
+    if not tracks:
+        download_progress["status"] = "error"
+        return
+    download_progress["total_songs"] = len(tracks)
+    download_progress["status"] = "downloading"
+    if not os.path.exists('downloads'):
+        os.makedirs('downloads')
+        
+    for i, track in enumerate(tracks):
+        download_song_from_youtube(track['title'], track['artist'])
+        download_progress['downloaded_count'] = i + 1
+    download_progress['status'] = 'complete'
+
+
 def home_view(request):
+    global download_progress
     if request.method == "POST":
         playlist_url = request.POST.get("playlist_url")
-
-        print("Request received. Setting up driver...")
-        driver = setup_driver()
-
-        print(f"Fetching playlist data from: {playlist_url}")
-        tracks = fetch_playlist_data(driver, playlist_url)
-        driver.quit()
-
-        if tracks:
-            print(f"Found {len(tracks)} tracks. Starting downloads...")
-            if not os.path.exists("downloads"):
-                os.makedirs("downloads")
-
-            for track in tracks:
-                download_song_from_youtube(track["title"], track["artist"])
-
-            message = f"Download complete! {len(tracks)} tracks processed. Check the server's 'downloads' folder."
-            return render(request, "home.html", {"message": message})
-        else:
-            message = "Could not find any tracks. The URL might be invalid, the playlist private, or the page structure has changed."
-            return render(request, "home.html", {"message": message})
-
-    return render(request, "home.html")
+        thread=threading.Thread(target=download_thread_target, args=(playlist_url,))
+        thread.start()
+        return render(request,'progress.html')
+    return render(request,'home.html')
+    
+def check_progress(request):
+    global download_progress
+    return JsonResponse(download_progress)
+        
+       
